@@ -2,21 +2,23 @@
 visualize results for test image
 """
 
-import numpy as np
+import os
+
 import matplotlib.pyplot as plt
-from PIL import Image
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import os
-from torch.autograd import Variable
-
-import transforms as transforms
+from PIL import Image
 from skimage import io
 from skimage.transform import resize
+
+import transforms as transforms
 from models import *
 
 cut_size = 44
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 transform_test = transforms.Compose([
     transforms.TenCrop(cut_size),
@@ -39,22 +41,22 @@ inputs = transform_test(img)
 class_names = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
 
 net = VGG('VGG19')
-checkpoint = torch.load(os.path.join('FER2013_VGG19', 'PrivateTest_model.t7'))
+checkpoint = torch.load(os.path.join('FER2013_VGG19', 'PrivateTest_model.pth'), map_location=device)
 net.load_state_dict(checkpoint['net'])
-net.cuda()
+net.to(device)
 net.eval()
 
 ncrops, c, h, w = np.shape(inputs)
 
 inputs = inputs.view(-1, c, h, w)
-inputs = inputs.cuda()
-inputs = Variable(inputs, volatile=True)
-outputs = net(inputs)
+inputs = inputs.to(device)
+with torch.no_grad():
+    outputs = net(inputs)
 
 outputs_avg = outputs.view(ncrops, -1).mean(0)  # avg over crops
 
-score = F.softmax(outputs_avg)
-_, predicted = torch.max(outputs_avg.data, 0)
+score = F.softmax(outputs_avg, dim=0)
+_, predicted = torch.max(outputs_avg, 0)
 
 plt.rcParams['figure.figsize'] = (13.5,5.5)
 axes=plt.subplot(1, 3, 1)
@@ -72,7 +74,7 @@ ind = 0.1+0.6*np.arange(len(class_names))    # the x locations for the groups
 width = 0.4       # the width of the bars: can also be len(x) sequence
 color_list = ['red','orangered','darkorange','limegreen','darkgreen','royalblue','navy']
 for i in range(len(class_names)):
-    plt.bar(ind[i], score.data.cpu().numpy()[i], width, color=color_list[i])
+    plt.bar(ind[i], score.cpu().numpy()[i], width, color=color_list[i])
 plt.title("Classification results ",fontsize=20)
 plt.xlabel(" Expression Category ",fontsize=16)
 plt.ylabel(" Classification Score ",fontsize=16)

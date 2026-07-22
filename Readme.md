@@ -1,56 +1,119 @@
 # Facial-Expression-Recognition.Pytorch
-A CNN based pytorch implementation on facial expression recognition (FER2013 and CK+), achieving 73.112% (state-of-the-art) in FER2013 and 94.64% in CK+ dataset
 
-## Demos ##
+A CNN-based PyTorch implementation for facial expression recognition on FER2013 and CK+ datasets.
+
+This repository has been updated to be compatible with Python 3.10 and PyTorch 2.x.
+
+## Demos
 ![Image text](https://raw.githubusercontent.com/WuJie1010/Facial-Expression-Recognition.Pytorch/master/demo/1.png)
 ![Image text](https://raw.githubusercontent.com/WuJie1010/Facial-Expression-Recognition.Pytorch/master/demo/2.png)
 
-## Dependencies ##
-- Python 2.7
-- Pytorch >=0.2.0
-- h5py (Preprocessing)
-- sklearn (plot confusion matrix)
+## Environment requirements
+The code in this repository has been verified under the following environment:
 
-## Visualize for a test image by a pre-trained model ##
-- Firstly, download the pre-trained model from https://drive.google.com/open?id=1Oy_9YmpkSKX1Q8jkOhJbz3Mc7qjyISzU (or https://pan.baidu.com/s/1gCL0TlCwKctAy_5yhzHy5Q,  key: g2d3) and then put it in the "FER2013_VGG19" folder; Next, Put the test image (rename as 1.jpg) into the "images" folder, then 
-- python visualize.py
+- Python 3.10.x
+- PyTorch 2.x (tested with 2.13.0+cu126)
+- torchvision 0.28.x
+- h5py
+- numpy
+- Pillow
+- scikit-learn
+- matplotlib
 
-## FER2013 Dataset ##
-- Dataset from https://www.kaggle.com/c/challenges-in-representation-learning-facial-expression-recognition-challenge/data
-Image Properties: 48 x 48 pixels (2304 bytes)
-labels: 0=Angry, 1=Disgust, 2=Fear, 3=Happy, 4=Sad, 5=Surprise, 6=Neutral
-The training set consists of 28,709 examples. The public test set consists of 3,589 examples. The private test set consists of another 3,589 examples.
+## Installation
+If you use conda, a typical setup is:
 
-### Preprocessing Fer2013 ###
-- first download the dataset(fer2013.csv) then put it in the "data" folder, then
-- python preprocess_fer2013.py
+```bash
+conda create -n emotion_env python=3.10
+conda activate emotion_env
+pip install "numpy<2" h5py pillow scikit-learn matplotlib
+pip install torch torchvision
+```
 
-### Train and Eval model ###
-- python mainpro_FER.py --model VGG19 --bs 128 --lr 0.01
+If you already use the environment in this workspace, the dependencies are already installed and ready to use.
 
-### plot confusion matrix ###
-- python plot_fer2013_confusion_matrix.py --model VGG19 --split PrivateTest
+## Project structure
+- `mainpro_FER.py`: training and evaluation for FER2013
+- `mainpro_CK+.py`: training and evaluation for CK+
+- `plot_fer2013_confusion_matrix.py`: confusion matrix for FER2013
+- `plot_CK+_confusion_matrix.py`: confusion matrix for CK+
+- `visualize.py`: inference on a single image with a pretrained checkpoint
+- `upgrade_notes_python3_torch2.md`: change log for the Python 3 / PyTorch 2 migration
 
-###              fer2013 Accurary             ###
+## FER2013 dataset
+Dataset source:
+- https://www.kaggle.com/c/challenges-in-representation-learning-facial-expression-recognition-challenge/data
 
-- Model：    VGG19 ;       PublicTest_acc：  71.496% ;     PrivateTest_acc：73.112%     <Br/>
-- Model：   Resnet18 ;     PublicTest_acc：  71.190% ;    PrivateTest_acc：72.973%     
+Image properties:
+- 48 x 48 pixels
+- labels: 0=Angry, 1=Disgust, 2=Fear, 3=Happy, 4=Sad, 5=Surprise, 6=Neutral
 
-## CK+ Dataset ##
-- The CK+ dataset is an extension of the CK dataset. It contains 327 labeled facial videos,
-We extracted the last three frames from each sequence in the CK+ dataset, which
-contains a total of 981 facial expressions. we use 10-fold Cross validation in the experiment.
+The training set contains 28,709 examples, the public test set contains 3,589 examples, and the private test set contains another 3,589 examples.
 
-### Train and Eval model for a fold ###
-- python mainpro_CK+.py --model VGG19 --bs 128 --lr 0.01 --fold 1
+### Prepare FER2013 data
+1. Download `fer2013.csv`.
+2. Put it into the `data` folder.
+3. Run:
 
-### Train and Eval model for all 10 fold ###
-- python k_fold_train.py
+```bash
+python preprocess_fer2013.py
+```
 
-### plot confusion matrix for all fold ###
-- python plot_CK+_confusion_matrix.py --model VGG19
+### Train and evaluate FER2013
+```bash
+python mainpro_FER.py --model VGG19 --bs 128 --lr 0.01
+```
 
-###      CK+ Accurary      ###
-- Model：    VGG19 ;       Test_acc：   94.646%   <Br/>
-- Model：   Resnet18 ;     Test_acc：   94.040%   
+### Plot FER2013 confusion matrix
+```bash
+python plot_fer2013_confusion_matrix.py --model VGG19 --split PrivateTest
+```
+
+## CK+ dataset
+The CK+ dataset is an extension of the CK dataset. It contains 327 labeled facial videos. The project extracts the last three frames from each sequence and uses 10-fold cross validation.
+
+### Prepare CK+ data
+The dataset file `CK_data.h5` is expected under the `data` directory.
+
+### Train and evaluate one CK+ fold
+```bash
+python mainpro_CK+.py --model VGG19 --bs 128 --lr 0.01 --fold 1
+```
+
+### Train and evaluate all CK+ folds
+```bash
+python k_fold_train.py
+```
+
+### Plot CK+ confusion matrix
+```bash
+python plot_CK+_confusion_matrix.py --model VGG19
+```
+
+## Visualize a test image with a pretrained model
+1. Put a pretrained checkpoint into the `FER2013_VGG19` folder.
+2. Put your test image as `images/1.jpg`.
+3. Run:
+
+```bash
+python visualize.py
+```
+
+## Notes for the new PyTorch version
+The scripts in this repository have been updated to work with PyTorch 2.x. The main changes include:
+
+- replacing `Variable` and `volatile=True`
+- using `device` instead of `.cuda()` directly
+- using `torch.no_grad()` for inference
+- saving/loading checkpoints as `.pth` files
+
+## Expected accuracy (reference)
+The original project reported the following approximate results:
+
+- FER2013 with VGG19:
+  - PublicTest accuracy: about 71.5%
+  - PrivateTest accuracy: about 73.1%
+
+- CK+ with VGG19:
+  - Test accuracy: about 94.6%
 

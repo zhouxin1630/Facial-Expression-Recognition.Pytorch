@@ -2,22 +2,19 @@
 plot confusion_matrix of PublicTest and PrivateTest
 """
 
+import argparse
 import itertools
-import numpy as np
-import matplotlib.pyplot as plt
+import os
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-import os
-import argparse
-from fer import FER2013
-
-from torch.autograd import Variable
-import torchvision
-import transforms as transforms
 from sklearn.metrics import confusion_matrix
+
+import transforms as transforms
+from fer import FER2013
 from models import *
 
 
@@ -28,6 +25,8 @@ parser.add_argument('--split', type=str, default='PrivateTest', help='split')
 opt = parser.parse_args()
 
 cut_size = 44
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 transform_test = transforms.Compose([
     transforms.TenCrop(cut_size),
@@ -79,41 +78,42 @@ elif opt.model  == 'Resnet18':
     net = ResNet18()
 
 path = os.path.join(opt.dataset + '_' + opt.model)
-checkpoint = torch.load(os.path.join(path, opt.split + '_model.t7'))
+checkpoint = torch.load(os.path.join(path, opt.split + '_model.pth'), map_location=device)
 
 net.load_state_dict(checkpoint['net'])
-net.cuda()
+net.to(device)
 net.eval()
 Testset = FER2013(split = opt.split, transform=transform_test)
 Testloader = torch.utils.data.DataLoader(Testset, batch_size=128, shuffle=False, num_workers=1)
 correct = 0
 total = 0
 all_target = []
-for batch_idx, (inputs, targets) in enumerate(Testloader):
+with torch.no_grad():
+    for batch_idx, (inputs, targets) in enumerate(Testloader):
 
-    bs, ncrops, c, h, w = np.shape(inputs)
-    inputs = inputs.view(-1, c, h, w)
-    inputs, targets = inputs.cuda(), targets.cuda()
-    inputs, targets = Variable(inputs, volatile=True), Variable(targets)
-    outputs = net(inputs)
+        bs, ncrops, c, h, w = np.shape(inputs)
+        inputs = inputs.view(-1, c, h, w)
+        inputs = inputs.to(device)
+        targets = targets.to(device)
+        outputs = net(inputs)
 
-    outputs_avg = outputs.view(bs, ncrops, -1).mean(1)  # avg over crops
-    _, predicted = torch.max(outputs_avg.data, 1)
+        outputs_avg = outputs.view(bs, ncrops, -1).mean(1)  # avg over crops
+        _, predicted = torch.max(outputs_avg, 1)
 
-    total += targets.size(0)
-    correct += predicted.eq(targets.data).cpu().sum()
-    if batch_idx == 0:
-        all_predicted = predicted
-        all_targets = targets
-    else:
-        all_predicted = torch.cat((all_predicted, predicted),0)
-        all_targets = torch.cat((all_targets, targets),0)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+        if batch_idx == 0:
+            all_predicted = predicted
+            all_targets = targets
+        else:
+            all_predicted = torch.cat((all_predicted, predicted), 0)
+            all_targets = torch.cat((all_targets, targets), 0)
 
 acc = 100. * correct / total
 print("accuracy: %0.3f" % acc)
 
 # Compute confusion matrix
-matrix = confusion_matrix(all_targets.data.cpu().numpy(), all_predicted.cpu().numpy())
+matrix = confusion_matrix(all_targets.cpu().numpy(), all_predicted.cpu().numpy())
 np.set_printoptions(precision=2)
 
 # Plot normalized confusion matrix

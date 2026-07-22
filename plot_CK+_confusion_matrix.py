@@ -1,17 +1,16 @@
 """
 plot confusion_matrix of fold Test set of CK+
 """
-import transforms as transforms
-
 import argparse
 import itertools
 import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 from sklearn.metrics import confusion_matrix
 
-
+import transforms as transforms
 from CK import CK
 from models import *
 
@@ -21,6 +20,8 @@ parser.add_argument('--model', type=str, default='VGG19', help='CNN architecture
 opt = parser.parse_args()
 
 cut_size = 44
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 transform_test = transforms.Compose([
     transforms.TenCrop(cut_size),
@@ -75,40 +76,41 @@ correct = 0
 total = 0
 all_target = []
 
-for i in xrange(10):
+for i in range(10):
     print("%d fold" % (i+1))
     path = os.path.join(opt.dataset + '_' + opt.model,  '%d' %(i+1))
-    checkpoint = torch.load(os.path.join(path, 'Test_model.t7'))
+    checkpoint = torch.load(os.path.join(path, 'Test_model.pth'), map_location=device)
 
     net.load_state_dict(checkpoint['net'])
-    net.cuda()
+    net.to(device)
     net.eval()
     testset = CK(split = 'Testing', fold = i+1, transform=transform_test)
     testloader = torch.utils.data.DataLoader(testset, batch_size=5, shuffle=False, num_workers=1)
 
-    for batch_idx, (inputs, targets) in enumerate(testloader):
-        bs, ncrops, c, h, w = np.shape(inputs)
-        inputs = inputs.view(-1, c, h, w)
-        inputs, targets = inputs.cuda(), targets.cuda()
-        inputs, targets = Variable(inputs, volatile=True), Variable(targets)
-        outputs = net(inputs)
-        outputs_avg = outputs.view(bs, ncrops, -1).mean(1)  # avg over crops
-        _, predicted = torch.max(outputs_avg.data, 1)
-        total += targets.size(0)
-        correct += predicted.eq(targets.data).cpu().sum()
+    with torch.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(testloader):
+            bs, ncrops, c, h, w = np.shape(inputs)
+            inputs = inputs.view(-1, c, h, w)
+            inputs = inputs.to(device)
+            targets = targets.to(device)
+            outputs = net(inputs)
+            outputs_avg = outputs.view(bs, ncrops, -1).mean(1)  # avg over crops
+            _, predicted = torch.max(outputs_avg, 1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
 
-        if batch_idx == 0 and i == 0:
-            all_predicted = predicted
-            all_targets = targets
-        else:
-            all_predicted = torch.cat((all_predicted, predicted), 0)
-            all_targets = torch.cat((all_targets, targets), 0)
+            if batch_idx == 0 and i == 0:
+                all_predicted = predicted
+                all_targets = targets
+            else:
+                all_predicted = torch.cat((all_predicted, predicted), 0)
+                all_targets = torch.cat((all_targets, targets), 0)
 
-        acc = 100. * correct / total
-        print("accuracy: %0.3f" % acc)
+            acc = 100. * correct / total
+            print("accuracy: %0.3f" % acc)
 
 # Compute confusion matrix
-matrix = confusion_matrix(all_targets.data.cpu().numpy(), all_predicted.cpu().numpy())
+matrix = confusion_matrix(all_targets.cpu().numpy(), all_predicted.cpu().numpy())
 np.set_printoptions(precision=2)
 
 # Plot normalized confusion matrix

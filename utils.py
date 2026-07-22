@@ -7,11 +7,10 @@
 import os
 import sys
 import time
-import math
+
 import torch
 import torch.nn as nn
 import torch.nn.init as init
-from torch.autograd import Function
 
 _, term_width = os.popen('stty size', 'r').read().split()
 term_width = int(term_width)
@@ -67,6 +66,6 @@ def set_lr(optimizer, lr):
 
 def clip_gradient(optimizer, grad_clip):
     for group in optimizer.param_groups:
-        #print(group['params'])
         for param in group['params']:
-            param.grad.data.clamp_(-grad_clip, grad_clip)
+            if param.grad is not None:
+                param.grad.data.clamp_(-grad_clip, grad_clip)
