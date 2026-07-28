@@ -1,1 +1,8 @@
 .vscode
+**/__pycache__/**
+Log/**
+records/**
+**/*.pth
+**/*.h5
+**/*.csv
+**/results/**

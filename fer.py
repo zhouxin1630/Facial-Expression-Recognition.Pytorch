@@ -66,7 +66,7 @@ class FER2013(data.Dataset):
         img = Image.fromarray(img)
         if self.transform is not None:
             img = self.transform(img)
-        return img, target
+        return img, int(target)
 
     def __len__(self):
         if self.split == 'Training':
